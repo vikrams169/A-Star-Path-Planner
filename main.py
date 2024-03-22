@@ -1,3 +1,8 @@
+'''
+Link to the GitHub Repository:
+https://github.com/vikrams169/A-Star-Path-Planner
+'''
+
 # Importing the required libraries
 import os
 import shutil

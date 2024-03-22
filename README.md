@@ -1,6 +1,8 @@
 # A-Star-Path-Planner
 An implementation of the A* Algorithm to plan optimal paths between a known starting and goal position in an obstacle-ridden 1200*500 grid world.
 
+Link to the GitHub Repository can be found [here](https://github.com/vikrams169/A-Star-Path-Planner).
+
 ## Authors
 <b>Vikram Setty</b>
 <ul>
