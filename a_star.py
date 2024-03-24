@@ -4,21 +4,22 @@ https://github.com/vikrams169/A-Star-Path-Planner
 '''
 
 # Importing the required libraries
-import os
-import shutil
 from heapq import *
 import numpy as np
-import pygame
 import cv2
-import imageio
 import time
 import copy
 
-#New
-#Initialising variables for map and frame
+# Size of the grid and dimensions of the grid block
+GRID_SIZE = (1200,500)
+map_size = [1200,500]
 CLEARANCE = 5
 RADIUS=5
-map_size = [1200,500]
+STEP_SIZE = 10
+WIDTH_X = 1
+WIDTH_Y = 1
+
+#Initialising variables for map and frame
 frame = np.full([map_size[1],map_size[0],3], (0,255,0)).astype(np.uint8)
 obstacle_frame = np.full([map_size[1],map_size[0],3], (0,255,0)).astype(np.uint8)
 #Size for output video frames
@@ -27,22 +28,6 @@ result = cv2.VideoWriter('a_star.mp4',
                          cv2.VideoWriter_fourcc(*'MP4V'),
                          20, size)
 
-
-# Defining colour values across the RGB Scale
-WHITE = (255,255,255)
-BLACK = (0,0,0)
-GRAY = (128,128,128)
-GREEN = (0,255,0)
-RED = (255,0,0)
-BLUE = (0,0,255)
-ORANGE = (255,164.5,0)
-
-# Size of the grid and dimensions of the grid block
-GRID_SIZE = (1200,500)
-CLEARANCE = 5
-STEP_SIZE = 10
-WIDTH_X = 1
-WIDTH_Y = 1
 
 # Names of the directory where the animation frames and the video generated would be saved to
 FRAME_DIRECTORY = "animation_frames"
@@ -71,8 +56,6 @@ frame_number = 0 # Current number of frames that have been saved
 # Return a boolean value of whether a grid cell lies within an obstacle (or in its clearance)
 def in_obstacle(loc):
     global obstacle_frame
-    # print(loc)
-    # if np.array_equal(viz_window.get_at(loc[:-1])[:3],GRAY) or np.array_equal(viz_window.get_at(loc[:-1])[:3],BLACK):
     if np.all(obstacle_frame[int(loc[1]),int(loc[0])]):
         return False
     else:
@@ -92,8 +75,14 @@ def compute_final_path(final_reached_loc):
     while not np.array_equal(path_nodes[-1],start_pos):
         parent_loc = path_nodes[-1]
         path_nodes.append((int(node_info[parent_loc[0],parent_loc[1],parent_loc[2],1]),int(node_info[parent_loc[0],parent_loc[1],parent_loc[2],2]),int(node_info[parent_loc[0],parent_loc[1],parent_loc[2],3])))
-    for loc in path_nodes:
+    path_nodes.reverse()
+    prev_loc = path_nodes[0]
+    cv2.circle(frame, [prev_loc[0],prev_loc[1]], 2, (0,0,255), -1) 
+    for loc in path_nodes[1:]:
+        frame = cv2.arrowedLine(frame, (prev_loc[0],prev_loc[1]), (loc[0],loc[1]), 
+                                    (0, 0, 255) , 2) 
         cv2.circle(frame, [loc[0],loc[1]], 2, (0,0,255), -1) 
+        prev_loc = loc
         result.write(frame)
 
 # Adding a node to the min-heap
@@ -116,7 +105,7 @@ def add_neighbors(loc):
 
 # Processing the current node that was returned by popping the min-heap
 def process_node(node):
-    global node_info, solved, iteration
+    global node_info, solved, iteration, frame
     dist, loc, parent_loc = node
     if node_info[loc[0],loc[1],loc[2],0] == 1:
         return
@@ -129,8 +118,9 @@ def process_node(node):
         node_info[loc[0],loc[1],loc[2],5] = 0
     else:
         node_info[loc[0],loc[1],loc[2],5] = node_info[parent_loc[0],parent_loc[1],parent_loc[2],5] + STEP_SIZE
-    frame[int(loc[1]),int(loc[0])] = [255,0,0]
-    # pygame.draw.rect(viz_window,BLUE,(loc[0],loc[1],WIDTH_X,WIDTH_Y))
+    # frame[int(loc[1]),int(loc[0])] = [255,0,0]
+    frame = cv2.arrowedLine(frame, (parent_loc[0],parent_loc[1]), (loc[0],loc[1]), 
+                                    (255, 0, 0) , 1) 
     if reached_goal(loc):
         solved = True
         compute_final_path(loc)
@@ -138,7 +128,6 @@ def process_node(node):
     iteration += 1
     if iteration%500 == 0:
         result.write(frame)
-        # save_frame(viz_window)
 
 # Wrapper function for the A* Algorithm
 def a_star():
@@ -146,8 +135,17 @@ def a_star():
     starting_dist = ((goal_pos[0]-start_pos[0])**2 + (goal_pos[1]-start_pos[1])**2)**0.5
     heappush(min_heap,(starting_dist,start_pos,start_pos))
     while not solved:
-        node = heappop(min_heap)
+
+        try:
+            node = heappop(min_heap)
+        except:
+            print("Cannot find solution")
+            break
+
         process_node(node)
+        # cv2.imshow('A star Visualisation', frame)
+        # if cv2.waitKey(1) == ord('q'):
+        #     break
 
 # Initializing start and goal positions using user input
 def initialize_start_and_goal_pos():
@@ -172,7 +170,7 @@ def initialize_start_and_goal_pos():
 
 # Initializing the map with obstacles in PyGame
 def initialize_map():
-    global obstacle_frame, frame
+    global obstacle_frame, frame, CLEARANCE, RADIUS
     #Walls
     walls_inflated = np.array([[[CLEARANCE,CLEARANCE],
             [map_size[0]-CLEARANCE,CLEARANCE], 
@@ -207,7 +205,43 @@ def initialize_map():
     cv2.fillPoly(frame, pts=hexagon, color=(0, 0, 0))
     cv2.fillPoly(frame, pts=random_shape_inflated, color=(0, 255, 0))
     cv2.fillPoly(frame, pts=random_shape, color=(0, 0, 0))
-    obstacle_frame = copy.deepcopy(frame)
+    #Radius of robot
+    CLEARANCE = CLEARANCE + RADIUS
+    # obstacle_frame = copy.deepcopy(frame)
+    #Walls
+    walls_inflated = np.array([[[CLEARANCE,CLEARANCE],
+            [map_size[0]-CLEARANCE,CLEARANCE], 
+            [map_size[0]-CLEARANCE,map_size[1]-CLEARANCE],
+            [0+CLEARANCE, map_size[1]-CLEARANCE]]
+    ])
+    #Obstacles
+    rectangles_inflated = np.array([
+        [(100-CLEARANCE,0),(175+CLEARANCE,0),(175+CLEARANCE,400+CLEARANCE),(100-CLEARANCE,400 + CLEARANCE)],
+        [(275-CLEARANCE,100-CLEARANCE),(350+CLEARANCE,100-CLEARANCE),(350+CLEARANCE,500),(275-CLEARANCE,500)]
+    ]) 
+    rectangles = np.array([
+        [(100,0),(175,0),(175,400),(100,400)],
+        [(275,100),(350,100),(350,500),(275,500)]
+    ])
+    hexagon_inflated = np.array([
+        [(650,100-CLEARANCE),(int(650+75*(3**0.5)+(CLEARANCE/2)*(3**0.5)),int(175-(CLEARANCE/2)*(3**0.5))),(int(650+75*(3**0.5)+(CLEARANCE/2)*(3**0.5)),int(325+(CLEARANCE/2)*(3**0.5))),(650,400+CLEARANCE),(int(650-75*(3**0.5)-(CLEARANCE/2)*(3**0.5)),int(325+(CLEARANCE/2)*(3**0.5))),(int(650-75*(3**0.5)-(CLEARANCE/2)*(3**0.5)),int(175-(CLEARANCE/2)*(3**0.5)))]
+    ]) 
+    hexagon = np.array([
+        [(650,100),(780,175),(780,325),(650,400),(520,325),(520,175)]
+    ])
+    random_shape_inflated = np.array([
+        [(900-CLEARANCE,50-CLEARANCE),(1100+CLEARANCE,50-CLEARANCE),(1100+CLEARANCE,450+CLEARANCE),(900-CLEARANCE,450+CLEARANCE),(900-CLEARANCE,375-CLEARANCE),(1020-CLEARANCE,375-CLEARANCE),(1020-CLEARANCE,125+CLEARANCE),(900-CLEARANCE,125+CLEARANCE)]
+    ]) 
+    random_shape = np.array([
+        [(900,50),(1100,50),(1100,450),(900,450),(900,375),(1020,375),(1020,125),(900,125)]
+    ]) 
+    cv2.fillPoly(obstacle_frame, pts=walls_inflated, color=(255, 255, 255))
+    cv2.fillPoly(obstacle_frame, pts=rectangles_inflated, color=(0, 255, 0))
+    cv2.fillPoly(obstacle_frame, pts=rectangles, color=(0, 0, 0))
+    cv2.fillPoly(obstacle_frame, pts=hexagon_inflated, color=(0, 255, 0))
+    cv2.fillPoly(obstacle_frame, pts=hexagon, color=(0, 0, 0))
+    cv2.fillPoly(obstacle_frame, pts=random_shape_inflated, color=(0, 255, 0))
+    cv2.fillPoly(obstacle_frame, pts=random_shape, color=(0, 0, 0))
 
 # Visualise the output video generated
 def visualise():
@@ -218,21 +252,26 @@ def visualise():
             print("Exiting, end of video?")
             break
         cv2.imshow('A star Visualisation', frame)
-        time.sleep(0.05)
+        time.sleep(0.01)
         if cv2.waitKey(1) == ord('q'):
             break
+    
+    time.sleep(2)
     
     cap.release()
     cv2.destroyAllWindows()
 
 def main():
-    global node_states, start_pos, goal_pos, CLEARANCE, STEP_SIZE
+    global node_states, start_pos, goal_pos, CLEARANCE, STEP_SIZE, RADIUS
 
     # Taking the clearnace as a user-input
     CLEARANCE = int(input("Enter the clearance/bloating value for the obstales and walls: "))
 
     # Taking the step-size as a user-input
     STEP_SIZE = int(input("Enter the step-size in the A* Algorithm: "))
+
+    # Taking the step-size as a user-input
+    RADIUS = int(input("Enter the radius of the Robot: "))
 
     # Initializing the map with obstacles
     initialize_map()
