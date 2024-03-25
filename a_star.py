@@ -8,13 +8,12 @@ from heapq import *
 import numpy as np
 import cv2
 import time
-import copy
 
 # Size of the grid and dimensions of the grid block
 GRID_SIZE = (1200,500)
 map_size = [1200,500]
 CLEARANCE = 5
-RADIUS=5
+RADIUS = 5
 STEP_SIZE = 10
 WIDTH_X = 1
 WIDTH_Y = 1
@@ -249,7 +248,7 @@ def visualise():
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
-            print("Exiting, end of video?")
+            print("Exiting, end of the video")
             break
         cv2.imshow('A star Visualisation', frame)
         time.sleep(0.01)
@@ -270,7 +269,7 @@ def main():
     # Taking the step-size as a user-input
     STEP_SIZE = int(input("Enter the step-size in the A* Algorithm: "))
 
-    # Taking the step-size as a user-input
+    # Taking the robot radius as a user-input
     RADIUS = int(input("Enter the radius of the Robot: "))
 
     # Initializing the map with obstacles
@@ -284,6 +283,7 @@ def main():
     start_time = time.time()
     a_star()
     end_time = time.time()
+
     print("\nSuccess! Found the Optimal Path\n")
     print("\nTime taken for the pathfinding process using the A* Algorithm: ",end_time-start_time," seconds\n")
     print("\nPlaying the video animation of the path computation\n")
